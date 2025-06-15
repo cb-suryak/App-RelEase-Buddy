@@ -1,0 +1,14 @@
+{
+  "name": "release-app",
+  "version": "1.0.0",
+  "description": "Slack app for managing release process",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.17.0",
+    "dotenv": "^16.4.1",
+    "axios": "^1.6.7"
+  }
+} 
