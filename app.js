@@ -401,7 +401,14 @@ app.error(async (error) => {
 (async () => {
   await app.start();
   console.log('⚡️ Bolt app is running!');
-  
-  // Create the initial message with the release button
-  await createReleaseMessage();
-})(); 
+})();
+
+// Listen for app mentions and show the buttons when tagged
+app.event('app_mention', async ({ event, context }) => {
+  try {
+    await createReleaseMessage();
+  } catch (error) {
+    console.error('Error posting release message on mention:', error);
+    await postSlackMessage('❌ Error showing release options.');
+  }
+}); 
