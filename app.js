@@ -85,14 +85,14 @@ async function getWorkflowRunURL(workflowFile = 'change-branch-lock-status.yml')
   }
 }
 
-// Create the initial message with the release button
+// Create the initial message with the release and unlock buttons
 async function createReleaseMessage() {
   const blocks = [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🚀 *Release Management*\nClick the button below to start the release process and lock the develop/subscriptions branch."
+        text: "🚀 *Release Management*\nClick a button below to lock or unlock the develop/subscriptions branch."
       }
     },
     {
@@ -102,11 +102,21 @@ async function createReleaseMessage() {
           type: "button",
           text: {
             type: "plain_text",
-            text: "Start Release",
+            text: "Start Release (Lock)",
             emoji: true
           },
           style: "primary",
           action_id: "start_release"
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "Unlock Branch",
+            emoji: true
+          },
+          style: "primary",
+          action_id: "unlock_branch"
         }
       ]
     }
@@ -115,13 +125,10 @@ async function createReleaseMessage() {
   await postSlackMessage("Release Management", blocks);
 }
 
-// Handle the button click
+// Handle the lock button click
 app.action('start_release', async ({ ack, body, client }) => {
   try {
-    // Acknowledge the button click
     await ack();
-
-    // Update the message to show the button is disabled (remove 'disabled' property)
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
@@ -131,7 +138,7 @@ app.action('start_release', async ({ ack, body, client }) => {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🚀 *Release Management*\nRelease process in progress..."
+            text: "🚀 *Release Management*\nLocking branch in progress..."
           }
         },
         {
@@ -151,11 +158,7 @@ app.action('start_release', async ({ ack, body, client }) => {
         }
       ]
     });
-
-    // Post initial message
     await postSlackMessage('🚀 Starting release process...');
-
-    // Trigger GitHub workflow with parameters
     await postSlackMessage('🔒 Triggering workflow to lock develop/subscriptions branch...');
     await triggerGitHubWorkflow({
       workflowFile: 'change-branch-lock-status.yml',
@@ -163,16 +166,14 @@ app.action('start_release', async ({ ack, body, client }) => {
       lockOption: 'lock',
       branchToLock: 'develop/subscriptions',
     });
-
-    // Get and post workflow run URL
+    // Wait 5 seconds before fetching the workflow run URL
+    await new Promise(resolve => setTimeout(resolve, 5000));
     const runURL = await getWorkflowRunURL('change-branch-lock-status.yml');
     if (runURL) {
       await postSlackMessage(`✅ Workflow triggered successfully!\n🔗 Workflow run URL: ${runURL}`);
     } else {
       await postSlackMessage('✅ Workflow triggered successfully!');
     }
-
-    // Update the original message to show completion
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
@@ -192,22 +193,29 @@ app.action('start_release', async ({ ack, body, client }) => {
               type: "button",
               text: {
                 type: "plain_text",
-                text: "Start Release",
+                text: "Start Release ",
                 emoji: true
               },
               style: "primary",
               action_id: "start_release"
+            },
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "Unlock Branch",
+                emoji: true
+              },
+              style: "primary",
+              action_id: "unlock_branch"
             }
           ]
         }
       ]
     });
-
   } catch (error) {
     console.error('Error in release process:', error);
     await postSlackMessage(`❌ Error during release process: ${error.message}`);
-    
-    // Update the original message to show error
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
@@ -227,11 +235,154 @@ app.action('start_release', async ({ ack, body, client }) => {
               type: "button",
               text: {
                 type: "plain_text",
-                text: "Start Release",
+                text: "Start Release (Lock)",
                 emoji: true
               },
               style: "primary",
               action_id: "start_release"
+            },
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "Unlock Branch",
+                emoji: true
+              },
+              style: "danger",
+              action_id: "unlock_branch"
+            }
+          ]
+        }
+      ]
+    });
+  }
+});
+
+// Handle the unlock button click
+app.action('unlock_branch', async ({ ack, body, client }) => {
+  try {
+    await ack();
+    await client.chat.update({
+      channel: body.channel.id,
+      ts: body.message.ts,
+      text: 'Release Management - Processing',
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: "🚀 *Release Management*\nUnlocking branch in progress..."
+          }
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "Processing...",
+                emoji: true
+              },
+              style: "danger",
+              action_id: "processing_unlock"
+            }
+          ]
+        }
+      ]
+    });
+    await postSlackMessage('🚀 Starting unlock process...');
+    await postSlackMessage('🔓 Triggering workflow to unlock develop/subscriptions branch...');
+    await triggerGitHubWorkflow({
+      workflowFile: 'change-branch-lock-status.yml',
+      workflowBranch: 'master',
+      lockOption: 'unlock',
+      branchToLock: 'develop/subscriptions',
+    });
+    // Wait 5 seconds before fetching the workflow run URL
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    const runURL = await getWorkflowRunURL('change-branch-lock-status.yml');
+    if (runURL) {
+      await postSlackMessage(`✅ Workflow triggered successfully!\n🔗 Workflow run URL: ${runURL}`);
+    } else {
+      await postSlackMessage('✅ Workflow triggered successfully!');
+    }
+    await client.chat.update({
+      channel: body.channel.id,
+      ts: body.message.ts,
+      text: 'Release Management - Success',
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: "🚀 *Release Management*\nUnlock process completed successfully!"
+          }
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "Start Release (Lock)",
+                emoji: true
+              },
+              style: "primary",
+              action_id: "start_release"
+            },
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "Unlock Branch",
+                emoji: true
+              },
+              style: "danger",
+              action_id: "unlock_branch"
+            }
+          ]
+        }
+      ]
+    });
+  } catch (error) {
+    console.error('Error in unlock process:', error);
+    await postSlackMessage(`❌ Error during unlock process: ${error.message}`);
+    await client.chat.update({
+      channel: body.channel.id,
+      ts: body.message.ts,
+      text: 'Release Management - Error',
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: "🚀 *Release Management*\n❌ Unlock process failed. Please try again."
+          }
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "Start Release (Lock)",
+                emoji: true
+              },
+              style: "primary",
+              action_id: "start_release"
+            },
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "Unlock Branch",
+                emoji: true
+              },
+              style: "danger",
+              action_id: "unlock_branch"
             }
           ]
         }
