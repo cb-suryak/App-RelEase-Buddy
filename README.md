@@ -61,7 +61,7 @@ A Slack app built with Bolt for JavaScript that helps manage the release process
 ## Usage
 
 1. When the app starts, it will post a message with a "Start Release" button in the configured Slack channel
-2. Click the "Start Release" button to:
+2. Click the "Lock Branch" button to:
    - Trigger the GitHub Actions workflow to lock the develop branch
    - See real-time status updates in the channel
    - Get the workflow run URL for tracking

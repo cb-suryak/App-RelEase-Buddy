@@ -102,11 +102,11 @@ async function createReleaseMessage() {
           type: "button",
           text: {
             type: "plain_text",
-            text: "Start Release (Lock)",
+            text: "Lock Branch",
             emoji: true
           },
           style: "primary",
-          action_id: "start_release"
+          action_id: "lock_branch"
         },
         {
           type: "button",
@@ -126,7 +126,7 @@ async function createReleaseMessage() {
 }
 
 // Handle the lock button click
-app.action('start_release', async ({ ack, body, client }) => {
+app.action('lock_branch', async ({ ack, body, client }) => {
   try {
     await ack();
     await client.chat.update({
@@ -158,7 +158,7 @@ app.action('start_release', async ({ ack, body, client }) => {
         }
       ]
     });
-    await postSlackMessage('🚀 Starting release process...');
+   // await postSlackMessage('🚀 Starting release process...');
     await postSlackMessage('🔒 Triggering workflow to lock develop/subscriptions branch...');
     await triggerGitHubWorkflow({
       workflowFile: 'change-branch-lock-status.yml',
@@ -235,11 +235,11 @@ app.action('start_release', async ({ ack, body, client }) => {
               type: "button",
               text: {
                 type: "plain_text",
-                text: "Start Release (Lock)",
+                text: "Lock Branch",
                 emoji: true
               },
               style: "primary",
-              action_id: "start_release"
+              action_id: "lock_branch"
             },
             {
               type: "button",
