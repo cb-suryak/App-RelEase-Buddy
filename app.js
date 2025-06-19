@@ -20,6 +20,8 @@ const githubConfig = {
   }
 };
 
+const ALLOWED_CHANNEL = process.env.SLACK_CHANNEL_ID; // Only allow in this channel
+
 // Helper function to post messages to Slack
 async function postSlackMessage(text, blocks = null) {
   try {
@@ -92,7 +94,7 @@ async function createReleaseMessage() {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🚀 *Release Management*\nClick a button below to lock or unlock the develop/subscriptions branch."
+        text: "🚀 \nClick a button below to lock/unlock the develop/subscriptions branch or try upcoming features."
       }
     },
     {
@@ -102,7 +104,7 @@ async function createReleaseMessage() {
           type: "button",
           text: {
             type: "plain_text",
-            text: "Lock Branch",
+            text: " :lock: Lock Develop Branch",
             emoji: true
           },
           style: "primary",
@@ -112,33 +114,90 @@ async function createReleaseMessage() {
           type: "button",
           text: {
             type: "plain_text",
-            text: "Unlock Branch",
+            text: ":unlock: Unlock Develop Branch",
             emoji: true
           },
           style: "primary",
           action_id: "unlock_branch"
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: ":construction: Start Prism on Develop",
+            emoji: true
+          },
+          style: "primary",
+          action_id: "prism_develop"
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: ":construction: Start Prism on Staging",
+            emoji: true
+          },
+          style: "primary",
+          action_id: "prism_staging"
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: ":construction: Deploy in Pre Prod",
+            emoji: true
+          },
+          style: "danger",
+          action_id: "deploy_preprod"
         }
       ]
     }
   ];
-
   await postSlackMessage("Release Management", blocks);
 }
 
-// Handle the lock button click
-app.action('lock_branch', async ({ ack, body, client }) => {
+// Listen for app mentions and show the buttons when tagged, only in allowed channel
+app.event('app_mention', async ({ event, context, client }) => {
+  if (event.channel !== ALLOWED_CHANNEL) {
+    // Send ephemeral message to user if used outside allowed channel
+    await client.chat.postEphemeral({
+      channel: event.channel,
+      user: event.user,
+      text: `❌ Sorry, this app can only be used in <#${ALLOWED_CHANNEL}>.`
+    });
+    return;
+  }
+  try {
+    await createReleaseMessage();
+  } catch (error) {
+    console.error('Error posting release message on mention:', error);
+    await postSlackMessage('❌ Error showing release options.');
+  }
+});
+
+// Handle the lock button click, only in allowed channel
+app.action('start_release', async ({ ack, body, client }) => {
+  if (body.channel.id !== ALLOWED_CHANNEL) {
+    await ack();
+    await client.chat.postEphemeral({
+      channel: body.channel.id,
+      user: body.user.id,
+      text: `❌ Sorry, this app can only be used in <#${ALLOWED_CHANNEL}>.`
+    });
+    return;
+  }
   try {
     await ack();
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
-      text: 'Release Management - Processing',
+      text: '- Processing',
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🚀 *Release Management*\nLocking branch in progress..."
+            text: "🚀 \nLocking branch in progress..."
           }
         },
         {
@@ -177,13 +236,13 @@ app.action('lock_branch', async ({ ack, body, client }) => {
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
-      text: 'Release Management - Success',
+      text: '- Success',
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🚀 *Release Management*\nRelease process completed successfully!"
+            text: "🚀 \nRelease process completed successfully!"
           }
         },
         {
@@ -219,13 +278,13 @@ app.action('lock_branch', async ({ ack, body, client }) => {
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
-      text: 'Release Management - Error',
+      text: '- Error',
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🚀 *Release Management*\n❌ Release process failed. Please try again."
+            text: "🚀 \n❌ Release process failed. Please try again."
           }
         },
         {
@@ -258,20 +317,29 @@ app.action('lock_branch', async ({ ack, body, client }) => {
   }
 });
 
-// Handle the unlock button click
+// Handle the unlock button click, only in allowed channel
 app.action('unlock_branch', async ({ ack, body, client }) => {
+  if (body.channel.id !== ALLOWED_CHANNEL) {
+    await ack();
+    await client.chat.postEphemeral({
+      channel: body.channel.id,
+      user: body.user.id,
+      text: `❌ Sorry, this app can only be used in <#${ALLOWED_CHANNEL}>.`
+    });
+    return;
+  }
   try {
     await ack();
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
-      text: 'Release Management - Processing',
+      text: '- Processing',
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🚀 *Release Management*\nUnlocking branch in progress..."
+            text: "🚀 \nUnlocking branch in progress..."
           }
         },
         {
@@ -310,13 +378,13 @@ app.action('unlock_branch', async ({ ack, body, client }) => {
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
-      text: 'Release Management - Success',
+      text: '- Success',
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🚀 *Release Management*\nUnlock process completed successfully!"
+            text: "🚀 \nUnlock process completed successfully!"
           }
         },
         {
@@ -339,7 +407,6 @@ app.action('unlock_branch', async ({ ack, body, client }) => {
                 text: "Unlock Branch",
                 emoji: true
               },
-              style: "danger",
               action_id: "unlock_branch"
             }
           ]
@@ -352,13 +419,13 @@ app.action('unlock_branch', async ({ ack, body, client }) => {
     await client.chat.update({
       channel: body.channel.id,
       ts: body.message.ts,
-      text: 'Release Management - Error',
+      text: ' - Error',
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🚀 *Release Management*\n❌ Unlock process failed. Please try again."
+            text: "🚀 \n❌ Unlock process failed. Please try again."
           }
         },
         {
@@ -378,7 +445,7 @@ app.action('unlock_branch', async ({ ack, body, client }) => {
               type: "button",
               text: {
                 type: "plain_text",
-                text: "Unlock Branch",
+                text: "Unlock Develop Branch",
                 emoji: true
               },
               style: "danger",
@@ -391,6 +458,30 @@ app.action('unlock_branch', async ({ ack, body, client }) => {
   }
 });
 
+// Add handlers for the new buttons
+async function sendComingSoonEphemeral(client, channel, user) {
+  await client.chat.postEphemeral({
+    channel,
+    user,
+    text: '🍳 We are cooking this. We will get back soon!'
+  });
+}
+
+app.action('prism_develop', async ({ ack, body, client }) => {
+  await ack();
+  await sendComingSoonEphemeral(client, body.channel.id, body.user.id);
+});
+
+app.action('prism_staging', async ({ ack, body, client }) => {
+  await ack();
+  await sendComingSoonEphemeral(client, body.channel.id, body.user.id);
+});
+
+app.action('deploy_preprod', async ({ ack, body, client }) => {
+  await ack();
+  await sendComingSoonEphemeral(client, body.channel.id, body.user.id);
+});
+
 // Error handling
 app.error(async (error) => {
   console.error('App error:', error);
@@ -401,14 +492,4 @@ app.error(async (error) => {
 (async () => {
   await app.start();
   console.log('⚡️ Bolt app is running!');
-})();
-
-// Listen for app mentions and show the buttons when tagged
-app.event('app_mention', async ({ event, context }) => {
-  try {
-    await createReleaseMessage();
-  } catch (error) {
-    console.error('Error posting release message on mention:', error);
-    await postSlackMessage('❌ Error showing release options.');
-  }
-}); 
+})(); 
